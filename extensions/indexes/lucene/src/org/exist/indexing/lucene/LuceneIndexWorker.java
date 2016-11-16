@@ -88,7 +88,9 @@ public class LuceneIndexWorker implements OrderedValuesIndex, QNamedKeysIndex {
     public static final String OPTION_PHRASE_SLOP = "phrase-slop";
     public static final String OPTION_LEADING_WILDCARD = "leading-wildcard";
     public static final String OPTION_FILTER_REWRITE = "filter-rewrite";
+    public static final String OPTION_LOWERCASE_EXPANDED = "lowercase-expanded";
     public static final String DEFAULT_OPERATOR_OR = "or";
+
 
     public static final org.apache.lucene.document.FieldType TYPE_NODE_ID = new org.apache.lucene.document.FieldType();
     static {
@@ -470,6 +472,9 @@ public class LuceneIndexWorker implements OrderedValuesIndex, QNamedKeysIndex {
         option = options.getProperty(OPTION_LEADING_WILDCARD);
         if (option != null)
             parser.setAllowLeadingWildcard(option.equalsIgnoreCase("yes"));
+	option = options.getProperty(OPTION_LOWERCASE_EXPANDED);
+        if (option != null)
+            parser.setLowercaseExpandedTerms(option.equalsIgnoreCase("yes"));
         option = options.getProperty(OPTION_PHRASE_SLOP);
         if (option != null) {
             try {

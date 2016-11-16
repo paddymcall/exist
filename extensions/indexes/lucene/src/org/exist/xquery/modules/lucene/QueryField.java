@@ -70,6 +70,7 @@ public class QueryField extends Query implements Optimizable {
                         "   <default-operator>and|or</default-operator>\n" +
                         "   <phrase-slop>number</phrase-slop>\n" +
                         "   <leading-wildcard>yes|no</leading-wildcard>\n" +
+			"   <lowercase-expanded>yes|no</lowercase-expanded>\n" +
                         "   <filter-rewrite>yes|no</filter-rewrite>\n" +
                         "</options>")
             },
