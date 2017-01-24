@@ -1,27 +1,27 @@
 package org.exist.storage;
 
+import org.exist.EXistException;
+import org.exist.collections.Collection;
+import org.exist.collections.IndexInfo;
+import org.exist.collections.triggers.TriggerException;
+import org.exist.dom.persistent.BinaryDocument;
+import org.exist.dom.persistent.DocumentImpl;
+import org.exist.security.PermissionDeniedException;
+import org.exist.storage.txn.TransactionManager;
+import org.exist.storage.txn.Txn;
+import org.exist.test.ExistEmbeddedServer;
+import org.exist.test.TestConstants;
+import org.exist.util.DatabaseConfigurationException;
+import org.exist.util.LockException;
+import org.exist.xmldb.XmldbURI;
+import org.junit.ClassRule;
+import org.junit.Test;
+import org.xml.sax.SAXException;
+
 import java.io.IOException;
 import java.util.Optional;
 
-import org.exist.collections.triggers.TriggerException;
-import org.exist.security.PermissionDeniedException;
-import org.exist.util.LockException;
-import org.junit.*;
-import org.exist.dom.persistent.BinaryDocument;
-import org.exist.EXistException;
-import org.exist.xmldb.XmldbURI;
-import org.exist.test.TestConstants;
-import org.exist.collections.Collection;
-import static org.exist.TestUtils.cleanupDataDir;
-import org.exist.collections.IndexInfo;
-import org.exist.dom.persistent.DocumentImpl;
-import org.exist.storage.txn.TransactionManager;
-import org.exist.storage.txn.Txn;
-import org.exist.util.Configuration;
-
 import static org.junit.Assert.*;
-import org.exist.util.DatabaseConfigurationException;
-import org.xml.sax.SAXException;
 
 
 public class ModificationTimeTest {
@@ -31,8 +31,6 @@ public class ModificationTimeTest {
                                         "<valid/>";
     private static final String INVALID_XML = "<?xml version=\"1.0\"?>"
             + "<invalid>";
-
-    private static BrokerPool pool = null;
 
      /**
      * Store a binary document, wait for a while and then overwrite it 
@@ -46,19 +44,19 @@ public class ModificationTimeTest {
         final String filename = "data.dat";
         final String data = "some data";
 
-            BinaryDocument binaryDoc = storeBinary(filename, data, mimeType);
-            assertNotNull(binaryDoc);
+        BinaryDocument binaryDoc = storeBinary(filename, data, mimeType);
+        assertNotNull(binaryDoc);
 
-            long modificationTimeBefore = binaryDoc.getMetadata().getLastModified();
-            
-            Thread.sleep(500);
-            
-            binaryDoc = storeBinary(filename, data, mimeType);
-            assertNotNull(binaryDoc);
+        long modificationTimeBefore = binaryDoc.getMetadata().getLastModified();
 
-            long modificationTimeAfter = binaryDoc.getMetadata().getLastModified();
-            //check the mimetype has been preserved across database restarts
-            assertNotEquals(modificationTimeBefore, modificationTimeAfter);
+        Thread.sleep(500);
+
+        binaryDoc = storeBinary(filename, data, mimeType);
+        assertNotNull(binaryDoc);
+
+        long modificationTimeAfter = binaryDoc.getMetadata().getLastModified();
+        //check the mimetype has been preserved across database restarts
+        assertNotEquals(modificationTimeBefore, modificationTimeAfter);
     }
     
      /**
@@ -120,21 +118,12 @@ public class ModificationTimeTest {
             assertEquals(modificationTimeBefore, modificationTimeAfter);
     }
 
-   @BeforeClass
-   public static void startDB() throws DatabaseConfigurationException, EXistException, IOException {
-        cleanupDataDir();
-        final Configuration config = new Configuration();
-        BrokerPool.configure(1, 5, config, Optional.empty());
-        pool = BrokerPool.getInstance();
-    }
-
-    @AfterClass
-    public static void stopDB() {
-        BrokerPool.stopAll(false);
-    }
+    @ClassRule
+    public static final ExistEmbeddedServer existEmbeddedServer = new ExistEmbeddedServer();
 
     private DocumentImpl getDocument(final XmldbURI uri) throws EXistException, PermissionDeniedException, DatabaseConfigurationException {
         DocumentImpl doc = null;
+        final BrokerPool pool = existEmbeddedServer.getBrokerPool();
         try(final DBBroker broker = pool.get(Optional.of(pool.getSecurityManager().getSystemSubject()));) {
             assertNotNull(broker);
 
@@ -149,6 +138,7 @@ public class ModificationTimeTest {
     }
 
     private BinaryDocument storeBinary(String name,  String data, String mimeType) throws EXistException, PermissionDeniedException, IOException, TriggerException, LockException, DatabaseConfigurationException {
+        final BrokerPool pool = existEmbeddedServer.getBrokerPool();
         final TransactionManager transact = pool.getTransactionManager();
 
         BinaryDocument binaryDoc = null;
@@ -168,6 +158,7 @@ public class ModificationTimeTest {
     }
     
     private IndexInfo storeXML(String name, String xml) throws EXistException, PermissionDeniedException, IOException, LockException, SAXException, DatabaseConfigurationException {
+        final BrokerPool pool = existEmbeddedServer.getBrokerPool();
         final TransactionManager transact = pool.getTransactionManager();
 
         IndexInfo info = null;

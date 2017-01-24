@@ -7,22 +7,19 @@ import org.exist.collections.IndexInfo;
 import org.exist.collections.triggers.TriggerException;
 import org.exist.dom.persistent.DocumentImpl;
 import org.exist.security.PermissionDeniedException;
-import org.exist.storage.lock.Lock;
+import org.exist.storage.lock.Lock.LockMode;
 import org.exist.storage.serializers.Serializer;
 import org.exist.storage.txn.TransactionManager;
 import org.exist.storage.txn.Txn;
+import org.exist.test.ExistEmbeddedServer;
 import org.exist.test.TestConstants;
-import org.exist.util.Configuration;
 import org.exist.util.DatabaseConfigurationException;
 import org.exist.util.FileUtils;
 import org.exist.util.LockException;
 import org.exist.xmldb.XmldbURI;
 import org.exist.TestUtils;
 
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
@@ -52,7 +49,8 @@ public class LargeValuesTest {
 
     private static final int KEY_LENGTH = 5000;
 
-    private static BrokerPool pool = null;
+    @ClassRule
+    public static final ExistEmbeddedServer existEmbeddedServer = new ExistEmbeddedServer();
 
     @Test
     public void storeAndRecover() throws PermissionDeniedException, DatabaseConfigurationException, IOException, LockException, CollectionConfigurationException, SAXException, EXistException {
@@ -65,6 +63,7 @@ public class LargeValuesTest {
      * Store some documents, reindex the collection and crash without commit.
      */
     private void storeDocuments() throws EXistException, DatabaseConfigurationException, PermissionDeniedException, IOException, SAXException, CollectionConfigurationException, LockException {
+        final BrokerPool pool = existEmbeddedServer.getBrokerPool();
         final TransactionManager transact = pool.getTransactionManager();
         try(final DBBroker broker = pool.get(Optional.of(pool.getSecurityManager().getSystemSubject()))) {
 
@@ -90,7 +89,7 @@ public class LargeValuesTest {
                 final IndexInfo info = root.validateXMLResource(transaction, broker, XmldbURI.create("test.xml"),
                         new InputSource(file.toUri().toASCIIString()));
                 assertNotNull(info);
-                root.store(transaction, broker, info, new InputSource(file.toUri().toASCIIString()), false);
+                root.store(transaction, broker, info, new InputSource(file.toUri().toASCIIString()));
                 broker.saveCollection(transaction, root);
 
                 transact.commit(transaction);
@@ -109,8 +108,9 @@ public class LargeValuesTest {
 
         BrokerPool.FORCE_CORRUPTION = false;
 
+        final BrokerPool pool = existEmbeddedServer.getBrokerPool();
         try(final DBBroker broker = pool.get(Optional.of(pool.getSecurityManager().getSystemSubject()));) {
-            final Collection root = broker.openCollection(TestConstants.TEST_COLLECTION_URI, Lock.READ_LOCK);
+            final Collection root = broker.openCollection(TestConstants.TEST_COLLECTION_URI, LockMode.READ_LOCK);
             assertNotNull(root);
 
             final DocumentImpl doc = root.getDocument(broker, XmldbURI.create("test.xml"));
@@ -140,11 +140,12 @@ public class LargeValuesTest {
     }
 
     private void remove() throws EXistException, PermissionDeniedException, DatabaseConfigurationException, IOException, TriggerException {
+        final BrokerPool pool = existEmbeddedServer.getBrokerPool();
         final TransactionManager transact = pool.getTransactionManager();
         try(final DBBroker broker = pool.get(Optional.of(pool.getSecurityManager().getSystemSubject()));
                 final Txn transaction = transact.beginTransaction()) {
 
-            final Collection root = broker.openCollection(TestConstants.TEST_COLLECTION_URI, Lock.READ_LOCK);
+            final Collection root = broker.openCollection(TestConstants.TEST_COLLECTION_URI, LockMode.READ_LOCK);
             assertNotNull(root);
             broker.removeCollection(transaction, root);
 
@@ -178,17 +179,8 @@ public class LargeValuesTest {
         return file;
     }
 
-
-    @BeforeClass
-    public static void startDB() throws DatabaseConfigurationException, EXistException {
-        final Configuration config = new Configuration();
-        BrokerPool.configure(1, 5, config, Optional.empty());
-        pool = BrokerPool.getInstance();
-    }
-
     @AfterClass
-    public static void closeDB() {
+    public static void cleanupDb() {
         TestUtils.cleanupDB();
-        pool.shutdown();
     }
 }

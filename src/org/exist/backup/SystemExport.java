@@ -19,6 +19,7 @@
  */
 package org.exist.backup;
 
+import org.exist.collections.MutableCollection;
 import org.exist.dom.QName;
 import org.exist.dom.persistent.DocumentMetadata;
 import org.exist.dom.persistent.DocumentSet;
@@ -493,12 +494,14 @@ public class SystemExport {
         final boolean needsBackup = (prevBackup == null) || (date.getTime() < doc.getMetadata().getLastModified());
 
         if (needsBackup) {
-            try(final OutputStream os = output.newEntry(Backup.encode(URIUtils.urlDecodeUtf8(doc.getFileURI())))) {
-
+            // Note: do not auto-close the output stream or the zip will be closed!
+            try {
+                final OutputStream os = output.newEntry(Backup.encode(URIUtils.urlDecodeUtf8(doc.getFileURI())));
                 if (doc.getResourceType() == DocumentImpl.BINARY_FILE) {
                     broker.readBinaryResource((BinaryDocument) doc, os);
                 } else {
-                    try(final Writer writer = new BufferedWriter(new OutputStreamWriter(os, UTF_8))) {
+                    final Writer writer = new BufferedWriter(new OutputStreamWriter(os, UTF_8));
+                    try {
 
                         // write resource to contentSerializer
                         final SAXSerializer contentSerializer = (SAXSerializer) SerializerPool.getInstance().borrowObject(SAXSerializer.class);
@@ -514,6 +517,8 @@ public class SystemExport {
 
                         writeXML(doc, receiver);
                         SerializerPool.getInstance().returnObject(contentSerializer);
+                    } finally {
+                        writer.flush();
                     }
                 }
             } catch (final Exception e) {
@@ -764,9 +769,10 @@ public class SystemExport {
                     if (callback != null) {
                         callback.startCollection(uri);
                     }
-                    final Collection collection = new Collection(broker, XmldbURI.createInternal(uri));
+
                     final VariableByteInput istream = store.getAsStream(pointer);
-                    collection.read(broker, istream);
+                    final Collection collection = MutableCollection.load(broker, XmldbURI.createInternal(uri), istream);
+
                     BackupDescriptor bd = null;
 
                     if (prevBackup != null) {
